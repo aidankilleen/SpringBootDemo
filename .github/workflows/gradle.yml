@@ -33,9 +33,32 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
 
-    - name: Build with Gradle Wrapper
-      run: ./gradlew build
+    - name: Run tests
+      run: ./gradlew test
 
+    - name: Build with Gradle Wrapper
+      run: ./gradlew bootJar
+
+    - name: Start ssh-agent
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+    - name: Add VPS to known_hosts
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.VPS_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+
+    - name: Copy jar to VPS
+      run: scp -P ${{ secrets.VPS_PORT }} build/libs/*.jar ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/springboot/app_new.jar
+
+    - name: Stop app on VPS
+      run: ssh -p ${{ secrets.VPS_PORT }} ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'sudo systemctl stop sbweb'
+
+    - name: Copy app_new.jar to app.jar
+      run: ssh -p ${{ secrets.VPS_PORT }} ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'mv /opt/springboot/app_new.jar /opt/springboot/app.jar'
+
+    - name: Stop app on VPS
+      run: ssh -p ${{ secrets.VPS_PORT }} ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'sudo systemctl start sbweb'
     # NOTE: The Gradle Wrapper is the default and recommended way to run Gradle (https://docs.gradle.org/current/userguide/gradle_wrapper.html).
     # If your project does not have the Gradle Wrapper configured, you can use the following configuration to run Gradle with a specified version.
     #
